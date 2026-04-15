@@ -35,6 +35,10 @@ async function startServer() {
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
   // OAuth callback under /api/oauth/callback
   registerOAuthRoutes(app);
+
+  // Arduino REST routes (public, no authentication)
+  const { registerArduinoRoutes } = await import("../arduino-routes");
+  registerArduinoRoutes(app);
   // tRPC API
   app.use(
     "/api/trpc",
