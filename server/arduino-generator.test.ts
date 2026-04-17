@@ -14,14 +14,13 @@ describe("Arduino Code Generator", () => {
 
       const code = generateArduinoCode(config);
 
-      expect(code).toContain("const char* ssid = \"TestNetwork\"");
-      expect(code).toContain("const char* password = \"TestPassword123\"");
-      expect(code).toContain("const char* serverAddress = \"192.168.1.100\"");
-      expect(code).toContain("const int serverPort = 3001");
-      expect(code).toContain("const char* sessionCode = \"test-session-123\"");
+      expect(code).toContain('const char* WIFI_SSID = "TestNetwork"');
+      expect(code).toContain('const char* WIFI_PASSWORD = "TestPassword123"');
+      expect(code).toContain("http://192.168.1.100:3001");
+      expect(code).toContain('const char* SESSION_CODE = "test-session-123"');
     });
 
-    it("should include required libraries", () => {
+    it("should include required libraries for DHT22", () => {
       const config = {
         ssid: "Test",
         password: "Test",
@@ -32,8 +31,8 @@ describe("Arduino Code Generator", () => {
 
       const code = generateArduinoCode(config);
 
-      expect(code).toContain("#include <WiFiC3.h>");
-      expect(code).toContain("#include <ArduinoHttpClient.h>");
+      expect(code).toContain("#include <WiFiS3.h>");
+      expect(code).toContain("#include <DHT.h>");
       expect(code).toContain("#include <ArduinoJson.h>");
     });
 
@@ -50,8 +49,9 @@ describe("Arduino Code Generator", () => {
 
       expect(code).toContain("void setup()");
       expect(code).toContain("void loop()");
-      expect(code).toContain("void connectWiFi()");
-      expect(code).toContain("void checkClassroom()");
+      expect(code).toContain("void connectToWiFi()");
+      expect(code).toContain("void readDHT22Sensor()");
+      expect(code).toContain("void queryClassroomStatus()");
     });
 
     it("should include 10 second interval", () => {
@@ -66,7 +66,22 @@ describe("Arduino Code Generator", () => {
       const code = generateArduinoCode(config);
 
       expect(code).toContain("10000");
-      expect(code).toContain("checkInterval");
+      expect(code).toContain("QUERY_INTERVAL");
+    });
+
+    it("should include DHT22 pin configuration", () => {
+      const config = {
+        ssid: "Test",
+        password: "Test",
+        serverAddress: "192.168.1.1",
+        serverPort: 3001,
+        sessionCode: "test",
+      };
+
+      const code = generateArduinoCode(config);
+
+      expect(code).toContain("#define DHT_PIN 2");
+      expect(code).toContain("#define DHT_TYPE DHT22");
     });
   });
 

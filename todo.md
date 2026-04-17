@@ -52,32 +52,41 @@
 - [ ] Implementar gráficos de temperatura
 - [ ] Exportar datos a CSV/PDF
 
-## Fase 8: Código Arduino Funcional
-- [x] Crear código Arduino base funcional
+## Fase 8: Código Arduino Funcional (DHT22)
+- [x] Crear código Arduino optimizado para UNO R4 WiFi + DHT22
 - [x] Consulta cada 10 segundos
+- [x] Lectura de temperatura y humedad desde DHT22
 - [x] Lectura de JSON desde servidor
 - [x] Mostrar número de alumnos en Serial Monitor
 - [x] Manejo de errores y reconexión WiFi
 - [x] Endpoint backend para generar código personalizado
 - [x] Interfaz web simplificada para configurar Arduino
 - [x] Descarga de código .ino personalizado
-- [x] 12 pruebas unitarias para generador (50 tests totales)
+- [x] Documentación de instalación completa (ARDUINO_DHT22_INSTALLATION.md)
+- [x] 13 pruebas unitarias para generador (51 tests totales)
 
 ## Fase 9: Pruebas e Integración
 - [x] Pruebas de endpoints públicos (15 tests)
-- [x] Pruebas de generador Arduino (12 tests)
+- [x] Pruebas de generador Arduino (13 tests)
 - [x] Pruebas de cálculo de temperatura (22 tests)
 - [x] Pruebas de autenticación (1 test)
-- [x] Total: 50 tests pasando
+- [x] Total: 51 tests pasando
+
+## Fase 10: Resolución de Problemas
+- [x] Agregar botón de volver al Dashboard
+- [x] Corregir navegación entre páginas
+- [x] Hacer Dashboard accesible sin autenticación
+- [x] Agregar onClick a tarjetas de características
 
 ## Estado Final
 - [x] Sistema de gestión climática completamente funcional
 - [x] Integración con app de QR (no-invasiva)
 - [x] Endpoints REST públicos para Arduino
 - [x] Configurador web para Arduino
-- [x] Código Arduino simplificado y funcional
-- [x] Documentación completa
-- [x] 50 pruebas unitarias pasando
-- [ ] Validar cálculos de temperatura
-- [ ] Pruebas de UI/UX
-- [ ] Documentación final y entrega
+- [x] Código Arduino optimizado para UNO R4 WiFi + DHT22
+- [x] Documentación completa de instalación
+- [x] 51 pruebas unitarias pasando
+- [x] Navegación y UI funcionales
+- [x] Dashboard accesible y usable
+- [x] Generador de código personalizado
+- [x] Integración con app de QR verificada

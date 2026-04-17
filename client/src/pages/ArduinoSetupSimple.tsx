@@ -75,15 +75,15 @@ export default function ArduinoSetupSimple() {
   return (
     <div className="min-h-screen bg-background p-4 md:p-8">
       <div className="max-w-4xl mx-auto">
-        <div className="technical-header mb-8">
-          <h1 className="blueprint-title">Configurador Arduino</h1>
-          <p className="blueprint-subtitle">Genera código para tu Arduino UNO R4 WiFi</p>
+        <div className="border-b-2 border-accent pb-4 mb-8">
+          <h1 className="font-bold text-4xl text-foreground mb-2">Configurador Arduino</h1>
+          <p className="text-sm text-muted-foreground">Genera código para tu Arduino UNO R4 WiFi</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Formulario */}
           <div className="space-y-4">
-            <Card className="technical-card">
+            <Card className="border-2 border-accent rounded-sm bg-card p-6">
               <h2 className="font-bold text-foreground mb-4">Configuración</h2>
 
               <div className="space-y-3">
@@ -169,7 +169,7 @@ export default function ArduinoSetupSimple() {
           {/* Código */}
           <div>
             {generatedCode ? (
-              <Card className="technical-card">
+              <Card className="border-2 border-accent rounded-sm bg-card p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="font-bold text-foreground">Código Generado</h2>
                   <CheckCircle className="h-5 w-5 text-accent" />
@@ -206,7 +206,7 @@ export default function ArduinoSetupSimple() {
                 </div>
               </Card>
             ) : (
-              <Card className="technical-card h-full flex items-center justify-center min-h-96">
+              <Card className="border-2 border-accent rounded-sm bg-card p-6 h-full flex items-center justify-center min-h-96">
                 <div className="text-center">
                   <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                   <p className="text-muted-foreground">Completa el formulario y genera el código</p>

@@ -7,10 +7,12 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { trpc } from "@/lib/trpc";
 import { useState } from "react";
-import { Thermometer, Users, Clock, AlertCircle } from "lucide-react";
+import { Thermometer, Users, Clock, AlertCircle, ArrowLeft } from "lucide-react";
+import { useLocation } from "wouter";
 
 export default function Dashboard() {
-  const { user } = useAuth();
+  const { user } = useAuth() || { user: null };
+  const [, navigate] = useLocation();
   const [sessionName, setSessionName] = useState("");
   const [sessionDescription, setSessionDescription] = useState("");
   const [isCreating, setIsCreating] = useState(false);
@@ -61,9 +63,19 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-8">
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold text-white mb-2">Sistema de Gestión Climática</h1>
-        <p className="text-slate-400">Bienvenido, {user?.name || "Usuario"}</p>
+      <div className="mb-8 flex justify-between items-start">
+        <div>
+          <h1 className="text-4xl font-bold text-white mb-2">Sistema de Gestión Climática</h1>
+          <p className="text-slate-400">Bienvenido, {user?.name || "Usuario"}</p>
+        </div>
+        <Button
+          onClick={() => navigate("/")}
+          variant="outline"
+          className="border-cyan-500 text-cyan-400 hover:bg-cyan-500/10"
+        >
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Volver
+        </Button>
       </div>
 
       {activeSession.data ? (

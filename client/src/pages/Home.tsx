@@ -57,13 +57,13 @@ export default function Home() {
       <section className="max-w-7xl mx-auto px-8 py-16">
         <h3 className="text-3xl font-bold text-white mb-12 text-center">Características Principales</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className="bg-slate-800 border border-slate-700 rounded-lg p-6 hover:border-cyan-500 transition">
+          <div className="bg-slate-800 border border-slate-700 rounded-lg p-6 hover:border-cyan-500 transition cursor-pointer" onClick={() => navigate("/dashboard")}>
             <Users className="w-12 h-12 text-cyan-400 mb-4" />
             <h4 className="text-lg font-semibold text-white mb-2">Gestión de Alumnos</h4>
             <p className="text-slate-400">Registro automático de asistencia mediante códigos QR en tiempo real</p>
           </div>
 
-          <div className="bg-slate-800 border border-slate-700 rounded-lg p-6 hover:border-cyan-500 transition">
+          <div className="bg-slate-800 border border-slate-700 rounded-lg p-6 hover:border-cyan-500 transition cursor-pointer" onClick={() => navigate("/dashboard")}>
             <Thermometer className="w-12 h-12 text-cyan-400 mb-4" />
             <h4 className="text-lg font-semibold text-white mb-2">Control Térmico</h4>
             <p className="text-slate-400">Cálculo automático de temperatura óptima según RITE/ASHRAE</p>
@@ -75,7 +75,7 @@ export default function Home() {
             <p className="text-slate-400">Conecta directamente con tu placa Arduino UNO R4 WiFi</p>
           </div>
 
-          <div className="bg-slate-800 border border-slate-700 rounded-lg p-6 hover:border-cyan-500 transition">
+          <div className="bg-slate-800 border border-slate-700 rounded-lg p-6 hover:border-cyan-500 transition cursor-pointer" onClick={() => navigate("/dashboard")}>
             <BarChart3 className="w-12 h-12 text-cyan-400 mb-4" />
             <h4 className="text-lg font-semibold text-white mb-2">Análisis</h4>
             <p className="text-slate-400">Historial y estadísticas de sesiones y confort térmico</p>

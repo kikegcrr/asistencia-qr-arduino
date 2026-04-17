@@ -1,35 +1,10 @@
-/**
- * Generador de código Arduino personalizado para UNO R4 WiFi + DHT22
- */
-
-export interface ArduinoConfig {
-  ssid: string;
-  password: string;
-  serverAddress: string;
-  serverPort: number;
-  sessionCode: string;
-}
-
-/**
- * Genera código Arduino personalizado basado en la configuración
- * Optimizado para Arduino UNO R4 WiFi + Sensor DHT22
- */
-export function generateArduinoCode(config: ArduinoConfig): string {
-  // Validar configuración
-  const validation = validateArduinoConfig(config);
-  if (!validation.valid) {
-    throw new Error(`Invalid Arduino configuration: ${validation.errors.join(", ")}`);
-  }
-
-  // Construir URL del servidor
-  const serverUrl = `http://${config.serverAddress}:${config.serverPort}`;
-
-  return `/*
+/*
   Sistema de Gestión Climática Inteligente para Aulas
   Arduino UNO R4 WiFi + Sensor DHT22
   
-  Código generado automáticamente
-  Fecha: ${new Date().toLocaleString()}
+  Este código consulta el número de alumnos cada 10 segundos
+  desde el servidor de gestión climática y muestra la información
+  en el Serial Monitor.
   
   Hardware requerido:
   - Arduino UNO R4 WiFi (ABX00087)
@@ -47,10 +22,11 @@ export function generateArduinoCode(config: ArduinoConfig): string {
 #include <ArduinoJson.h>
 
 // ============ CONFIGURACIÓN ============
-const char* WIFI_SSID = "${config.ssid}";
-const char* WIFI_PASSWORD = "${config.password}";
-const char* SERVER_URL = "${serverUrl}";
-const char* SESSION_CODE = "${config.sessionCode}";
+// Estos valores se reemplazarán por el configurador web
+const char* WIFI_SSID = "YOUR_SSID";
+const char* WIFI_PASSWORD = "YOUR_PASSWORD";
+const char* SERVER_URL = "http://your-server.com";
+const char* SESSION_CODE = "your-session-code";
 
 // Sensor DHT22
 #define DHT_PIN 2
@@ -72,9 +48,9 @@ void setup() {
   Serial.begin(9600);
   delay(2000);
   
-  Serial.println("\\n\\n=== Sistema de Gestión Climática ===");
+  Serial.println("\n\n=== Sistema de Gestión Climática ===");
   Serial.println("Arduino UNO R4 WiFi + DHT22");
-  Serial.println("=====================================\\n");
+  Serial.println("=====================================\n");
   
   // Inicializar sensor DHT22
   dht.begin();
@@ -92,7 +68,7 @@ void loop() {
   // Verificar conexión WiFi
   if (WiFi.status() != WL_CONNECTED) {
     if (wifiConnected) {
-      Serial.println("\\n[WiFi] Conexión perdida. Intentando reconectar...");
+      Serial.println("\n[WiFi] Conexión perdida. Intentando reconectar...");
       wifiConnected = false;
     }
     connectToWiFi();
@@ -120,7 +96,7 @@ void connectToWiFi() {
     return;
   }
   
-  Serial.println("\\n[WiFi] Conectando...");
+  Serial.println("\n[WiFi] Conectando...");
   Serial.print("[WiFi] SSID: ");
   Serial.println(WIFI_SSID);
   
@@ -135,11 +111,11 @@ void connectToWiFi() {
   
   if (WiFi.status() == WL_CONNECTED) {
     wifiConnected = true;
-    Serial.println("\\n[WiFi] ✓ Conectado");
+    Serial.println("\n[WiFi] ✓ Conectado");
     Serial.print("[WiFi] IP: ");
     Serial.println(WiFi.localIP());
   } else {
-    Serial.println("\\n[WiFi] ✗ Error de conexión");
+    Serial.println("\n[WiFi] ✗ Error de conexión");
     wifiConnected = false;
   }
 }
@@ -178,27 +154,28 @@ void queryClassroomStatus() {
     return;
   }
   
-  Serial.println("\\n[API] Consultando estado del aula...");
+  Serial.println("\n[API] Consultando estado del aula...");
+  
+  // Construir URL de consulta
+  String url = String(SERVER_URL) + "/api/trpc/arduino.classroomStatus";
   
   // Crear cliente HTTP
   WiFiClient client;
   
   // Conectar al servidor
-  if (!client.connect("${config.serverAddress}", ${config.serverPort})) {
+  if (!client.connect(SERVER_URL, 80)) {
     Serial.println("[API] ✗ Error de conexión al servidor");
     return;
   }
   
-  // Construir URL de consulta
-  String path = "/api/trpc/arduino.classroomStatus";
-  
   // Enviar solicitud GET
   client.print("GET ");
-  client.print(path);
+  client.print(url);
   client.println(" HTTP/1.1");
   client.print("Host: ");
-  client.print("${config.serverAddress}");
-  client.println("\\r\\nConnection: close\\r\\n");
+  client.println(SERVER_URL);
+  client.println("Connection: close");
+  client.println();
   
   // Esperar respuesta
   unsigned long timeout = millis() + 5000; // Timeout de 5 segundos
@@ -210,7 +187,7 @@ void queryClassroomStatus() {
       char c = client.read();
       
       if (!headerEnd) {
-        if (c == '\\n' && response.endsWith("\\r\\n\\r\\n")) {
+        if (c == '\n' && response.endsWith("\r\n\r\n")) {
           headerEnd = true;
           response = ""; // Limpiar para recibir solo el body
         } else {
@@ -277,41 +254,13 @@ void parseClassroomStatus(String jsonResponse) {
      - Tools > Board > Arduino UNO R4 WiFi
      - Tools > Port > Seleccionar puerto COM
   
-  3. Cargar el código en Arduino
+  3. Reemplazar valores de configuración:
+     - WIFI_SSID: Tu red WiFi
+     - WIFI_PASSWORD: Contraseña WiFi
+     - SERVER_URL: URL de tu servidor (sin http://)
+     - SESSION_CODE: Código de sesión
   
-  4. Abrir Serial Monitor (9600 baud) para ver logs
+  4. Cargar el código en Arduino
+  
+  5. Abrir Serial Monitor (9600 baud) para ver logs
 */
-`;
-}
-
-/**
- * Valida la configuración de Arduino
- */
-export function validateArduinoConfig(config: ArduinoConfig): { valid: boolean; errors: string[] } {
-  const errors: string[] = [];
-
-  if (!config.ssid || config.ssid.trim().length === 0) {
-    errors.push("SSID es requerido");
-  }
-
-  if (!config.password || config.password.trim().length === 0) {
-    errors.push("Contraseña es requerida");
-  }
-
-  if (!config.serverAddress || config.serverAddress.trim().length === 0) {
-    errors.push("Dirección del servidor es requerida");
-  }
-
-  if (config.serverPort < 1 || config.serverPort > 65535) {
-    errors.push("Puerto debe estar entre 1 y 65535");
-  }
-
-  if (!config.sessionCode || config.sessionCode.trim().length === 0) {
-    errors.push("Código de sesión es requerido");
-  }
-
-  return {
-    valid: errors.length === 0,
-    errors,
-  };
-}
