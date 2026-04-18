@@ -5,9 +5,18 @@ import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { generateArduinoCode, validateArduinoConfig } from "./arduino-generator";
+import {
+  getActiveSession,
+  getSessionByCode,
+  getSessionStudents,
+  addStudentToSession,
+  createOrUpdateSession,
+  getStudentCount,
+  logTemperature,
+} from "./db";
+import { calculateOptimalTemperature } from "./temperature-calculator";
 
 export const appRouter = router({
-    // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
   system: systemRouter,
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
@@ -22,154 +31,186 @@ export const appRouter = router({
 
   // Arduino public endpoints (no authentication required)
   arduino: router({
-    classroomStatus: publicProcedure.query(async () => {
-      const { getActiveSession, getActiveStudentCount } = await import("./db");
-      const { calculateOptimalTemperature } = await import("./temperature-calculator");
+    classroomStatus: publicProcedure
+      .input(z.object({ sessionCode: z.string().optional() }).optional())
+      .query(async ({ input }) => {
+        try {
+          let session = null;
+          let sessionCode = input?.sessionCode;
 
-      const session = await getActiveSession();
-      if (!session) {
-        return {
-          success: false,
-          message: "No active session",
-          studentCount: 0,
-          targetTemperature: 0,
-          comfortStatus: "unknown",
-        };
-      }
+          // If no sessionCode provided, get the active session
+          if (!sessionCode) {
+            session = await getActiveSession();
+            if (!session) {
+              return {
+                success: false,
+                message: "No active session",
+                studentCount: 0,
+                targetTemperature: 0,
+                comfortStatus: "unknown",
+              };
+            }
+            sessionCode = session.sessionCode;
+          } else {
+            session = await getSessionByCode(sessionCode);
+            if (!session) {
+              return {
+                success: false,
+                message: "Session not found",
+                studentCount: 0,
+                targetTemperature: 0,
+                comfortStatus: "unknown",
+              };
+            }
+          }
 
-      const studentCount = await getActiveStudentCount(session.id);
-      const mockCurrentTemp = 22.5; // In production, this would come from Arduino sensor
-      const calculation = calculateOptimalTemperature(mockCurrentTemp, studentCount);
+          const studentCount = await getStudentCount(sessionCode);
+          const mockCurrentTemp = 22.5; // In production, this would come from Arduino sensor
+          const calculation = calculateOptimalTemperature(mockCurrentTemp, studentCount);
 
-      return {
-        success: true,
-        sessionId: session.id,
-        sessionName: session.name,
-        studentCount,
-        currentTemperature: mockCurrentTemp,
-        targetTemperature: calculation.targetTemperature,
-        comfortStatus: calculation.comfortStatus,
-        season: calculation.season,
-      };
-    }),
+          return {
+            success: true,
+            sessionCode,
+            sessionName: session.name,
+            studentCount,
+            currentTemperature: mockCurrentTemp,
+            targetTemperature: calculation.targetTemperature,
+            comfortStatus: calculation.comfortStatus,
+            season: calculation.season,
+          };
+        } catch (error) {
+          console.error("[Arduino] Error getting classroom status:", error);
+          return {
+            success: false,
+            message: "Error retrieving status",
+            studentCount: 0,
+            targetTemperature: 0,
+            comfortStatus: "error",
+          };
+        }
+      }),
 
     updateStudents: publicProcedure
       .input(
         z.object({
-          action: z.enum(["checkin", "checkout"]),
-          studentId: z.string(),
-          studentName: z.string(),
+          sessionCode: z.string(),
+          students: z.array(
+            z.object({
+              id: z.string(),
+              firstName: z.string(),
+              lastName: z.string(),
+            })
+          ),
         })
       )
       .mutation(async ({ input }) => {
-        const { getActiveSession, upsertStudentAttendance, checkoutStudent } =
-          await import("./db");
+        try {
+          const { sessionCode, students } = input;
 
-        const session = await getActiveSession();
-        if (!session) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "No active session",
-          });
+          // Create or update session
+          await createOrUpdateSession(sessionCode, `Session ${sessionCode}`);
+
+          // Add students
+          for (const student of students) {
+            await addStudentToSession(
+              sessionCode,
+              student.id,
+              student.firstName,
+              student.lastName
+            );
+          }
+
+          return {
+            success: true,
+            message: `Updated ${students.length} students`,
+            studentCount: students.length,
+          };
+        } catch (error) {
+          console.error("[Arduino] Error updating students:", error);
+          return {
+            success: false,
+            message: "Error updating students",
+          };
         }
-
-        if (input.action === "checkin") {
-          await upsertStudentAttendance(
-            session.id,
-            input.studentId,
-            input.studentName
-          );
-        } else if (input.action === "checkout") {
-          await checkoutStudent(session.id, input.studentId);
-        }
-
-        return { success: true, action: input.action };
       }),
   }),
 
-  // Session management (protected)
+  // Session management (internal)
   sessions: router({
-    create: protectedProcedure
+    getActive: publicProcedure.query(async () => {
+      const session = await getActiveSession();
+      return session || null;
+    }),
+
+    getByCode: publicProcedure
+      .input(z.object({ sessionCode: z.string() }))
+      .query(async ({ input }) => {
+        return await getSessionByCode(input.sessionCode);
+      }),
+
+    getStudents: publicProcedure
+      .input(z.object({ sessionCode: z.string() }))
+      .query(async ({ input }) => {
+        return await getSessionStudents(input.sessionCode);
+      }),
+
+    create: publicProcedure
       .input(
         z.object({
-          name: z.string().min(1),
+          sessionCode: z.string(),
+          name: z.string(),
           description: z.string().optional(),
         })
       )
-      .mutation(async ({ input, ctx }) => {
-        const { createSession } = await import("./db");
-        await createSession(input.name, input.description, ctx.user.id);
-        return { success: true };
-      }),
-
-    activate: protectedProcedure
-      .input(z.object({ sessionId: z.number() }))
       .mutation(async ({ input }) => {
-        const { activateSession } = await import("./db");
-        await activateSession(input.sessionId);
-        return { success: true };
+        return await createOrUpdateSession(
+          input.sessionCode,
+          input.name,
+          input.description
+        );
       }),
 
-    close: protectedProcedure
-      .input(z.object({ sessionId: z.number() }))
-      .mutation(async ({ input }) => {
-        const { closeSession } = await import("./db");
-        await closeSession(input.sessionId);
-        return { success: true };
-      }),
-
-    getActive: publicProcedure.query(async () => {
-      const { getActiveSession, getActiveStudentCount, getSessionStudents } =
-        await import("./db");
-
-      const session = await getActiveSession();
-      if (!session) return null;
-
-      const studentCount = await getActiveStudentCount(session.id);
-      const students = await getSessionStudents(session.id);
-
-      return {
-        id: session.id,
-        name: session.name,
-        studentCount,
-        students,
-        startTime: session.startTime,
-      };
-    }),
-
-    list: protectedProcedure.query(async () => {
-      const { getSessionHistory } = await import("./db");
-      return await getSessionHistory(50, 0);
+    list: publicProcedure.query(async () => {
+      // In a real app, this would query all sessions
+      // For now, return empty array
+      return [];
     }),
   }),
 
-  arduinoGen: router({
+  // Arduino code generator
+  arduinoGenerator: router({
     generateCode: publicProcedure
       .input(
         z.object({
-          ssid: z.string().min(1),
-          password: z.string().min(1),
-          serverAddress: z.string().min(1),
-          serverPort: z.number().min(1).max(65535),
-          sessionCode: z.string().min(1),
+          ssid: z.string(),
+          password: z.string(),
+          serverAddress: z.string(),
+          serverPort: z.number(),
+          sessionCode: z.string(),
         })
       )
-      .mutation(({ input }) => {
-        const validation = validateArduinoConfig(input);
-        if (!validation.valid) {
+      .query(async ({ input }) => {
+        try {
+          const config = {
+            ssid: input.ssid,
+            password: input.password,
+            serverAddress: input.serverAddress,
+            serverPort: input.serverPort,
+            sessionCode: input.sessionCode,
+          };
+
+          const code = generateArduinoCode(config);
+          return {
+            success: true,
+            code,
+            filename: `arduino_climate_${input.sessionCode}.ino`,
+          };
+        } catch (error) {
           throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: validation.errors.join(", "),
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Failed to generate Arduino code",
           });
         }
-
-        const code = generateArduinoCode(input);
-
-        return {
-          success: true,
-          code,
-          filename: "arduino_classroom_status.ino",
-        };
       }),
   }),
 });

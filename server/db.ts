@@ -1,4 +1,4 @@
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { InsertUser, users, classroomSessions, studentAttendance, temperatureLogs } from "../drizzle/schema";
 import { ENV } from './_core/env';
@@ -109,100 +109,128 @@ export async function getActiveSession(): Promise<ClassroomSession | undefined> 
 }
 
 /**
- * Get all students in an active session
+ * Get session by sessionCode
  */
-export async function getSessionStudents(sessionId: number) {
+export async function getSessionByCode(sessionCode: string): Promise<ClassroomSession | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+
+  const result = await db
+    .select()
+    .from(classroomSessions)
+    .where(eq(classroomSessions.sessionCode, sessionCode))
+    .limit(1);
+
+  return result.length > 0 ? result[0] : undefined;
+}
+
+/**
+ * Get all students in a session by sessionCode
+ */
+export async function getSessionStudents(sessionCode: string) {
   const db = await getDb();
   if (!db) return [];
 
   return await db
     .select()
     .from(studentAttendance)
-    .where(eq(studentAttendance.sessionId, sessionId));
+    .where(eq(studentAttendance.sessionCode, sessionCode));
 }
 
 /**
- * Add or update a student in a session
+ * Add a student to a session
  */
-export async function upsertStudentAttendance(
-  sessionId: number,
+export async function addStudentToSession(
+  sessionCode: string,
   studentId: string,
-  studentName: string
+  firstName: string,
+  lastName: string
 ) {
   const db = await getDb();
   if (!db) return undefined;
 
-  const existing = await db
-    .select()
-    .from(studentAttendance)
-    .where(
-      and(
-        eq(studentAttendance.sessionId, sessionId),
-        eq(studentAttendance.studentId, studentId)
-      )
-    )
-    .limit(1);
+  try {
+    const result = await db.insert(studentAttendance).values({
+      sessionCode,
+      studentId,
+      firstName,
+      lastName,
+      checkInTime: new Date(),
+      createdAt: new Date(),
+    });
 
-  if (existing.length > 0) {
-    // Student already checked in, update check-out time if needed
-    return existing[0];
+    return result;
+  } catch (error) {
+    console.error("[Database] Failed to add student:", error);
+    return undefined;
   }
-
-  // New attendance record
-  await db.insert(studentAttendance).values({
-    sessionId,
-    studentId,
-    studentName,
-    checkInTime: new Date(),
-  });
-
-  return { sessionId, studentId, studentName };
 }
 
 /**
- * Remove a student from a session (check-out)
+ * Create or update a classroom session
  */
-export async function checkoutStudent(sessionId: number, studentId: string) {
+export async function createOrUpdateSession(
+  sessionCode: string,
+  name: string,
+  description?: string
+) {
   const db = await getDb();
   if (!db) return undefined;
 
-  await db
-    .update(studentAttendance)
-    .set({ checkOutTime: new Date() })
-    .where(
-      and(
-        eq(studentAttendance.sessionId, sessionId),
-        eq(studentAttendance.studentId, studentId),
-        isNull(studentAttendance.checkOutTime)
-      )
-    );
+  try {
+    const existing = await getSessionByCode(sessionCode);
+
+    if (existing) {
+      // Update existing session
+      await db
+        .update(classroomSessions)
+        .set({
+          name,
+          description: description || existing.description,
+          updatedAt: new Date(),
+        })
+        .where(eq(classroomSessions.sessionCode, sessionCode));
+      return existing;
+    } else {
+      // Create new session
+      const result = await db.insert(classroomSessions).values({
+        sessionCode,
+        name,
+        description,
+        startTime: new Date(),
+        isActive: 1,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      return result;
+    }
+  } catch (error) {
+    console.error("[Database] Failed to create/update session:", error);
+    return undefined;
+  }
 }
 
 /**
- * Get count of active students (checked in but not checked out)
+ * Get count of students in a session
  */
-export async function getActiveStudentCount(sessionId: number) {
+export async function getStudentCount(sessionCode: string): Promise<number> {
   const db = await getDb();
   if (!db) return 0;
 
   const result = await db
-    .select({ count: sql<number>`COUNT(*)` })
+    .select()
     .from(studentAttendance)
-    .where(
-      and(
-        eq(studentAttendance.sessionId, sessionId),
-        isNull(studentAttendance.checkOutTime)
-      )
-    );
+    .where(eq(studentAttendance.sessionCode, sessionCode));
 
-  return result[0]?.count || 0;
+  return result.length;
 }
 
 /**
  * Log temperature reading
  */
 export async function logTemperature(
-  sessionId: number,
+  sessionCode: string,
   currentTemperature: number,
   targetTemperature: number,
   studentCount: number,
@@ -212,82 +240,18 @@ export async function logTemperature(
   const db = await getDb();
   if (!db) return undefined;
 
-  await db.insert(temperatureLogs).values({
-    sessionId: sessionId,
-    currentTemperature: currentTemperature.toString(),
-    targetTemperature: targetTemperature.toString(),
-    studentCount: studentCount,
-    comfortStatus: comfortStatus,
-    season: season,
-  });
-}
-
-/**
- * Create a new classroom session
- */
-export async function createSession(
-  name: string,
-  description: string | undefined,
-  createdBy: number
-) {
-  const db = await getDb();
-  if (!db) return undefined;
-
-  const result = await db.insert(classroomSessions).values({
-    name,
-    description,
-    startTime: new Date(),
-    createdBy,
-    isActive: 0,
-  });
-
-  return result;
-}
-
-/**
- * Activate a session
- */
-export async function activateSession(sessionId: number) {
-  const db = await getDb();
-  if (!db) return undefined;
-
-  // Deactivate all other sessions first
-  await db
-    .update(classroomSessions)
-    .set({ isActive: 0 })
-    .where(eq(classroomSessions.isActive, 1));
-
-  // Activate the selected session
-  await db
-    .update(classroomSessions)
-    .set({ isActive: 1 })
-    .where(eq(classroomSessions.id, sessionId));
-}
-
-/**
- * Close a session
- */
-export async function closeSession(sessionId: number) {
-  const db = await getDb();
-  if (!db) return undefined;
-
-  await db
-    .update(classroomSessions)
-    .set({ isActive: 0, endTime: new Date() })
-    .where(eq(classroomSessions.id, sessionId));
-}
-
-/**
- * Get session history with pagination
- */
-export async function getSessionHistory(limit: number = 10, offset: number = 0) {
-  const db = await getDb();
-  if (!db) return [];
-
-  return await db
-    .select()
-    .from(classroomSessions)
-    .orderBy(sql`${classroomSessions.startTime} DESC`)
-    .limit(limit)
-    .offset(offset);
+  try {
+    return await db.insert(temperatureLogs).values({
+      sessionCode,
+      currentTemperature: currentTemperature.toString(),
+      targetTemperature: targetTemperature.toString(),
+      studentCount,
+      comfortStatus,
+      season,
+      createdAt: new Date(),
+    });
+  } catch (error) {
+    console.error("[Database] Failed to log temperature:", error);
+    return undefined;
+  }
 }

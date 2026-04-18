@@ -15,7 +15,19 @@ export default function ArduinoSetupSimple() {
   const [generatedCode, setGeneratedCode] = useState("");
   const [copied, setCopied] = useState(false);
 
-  const generateMutation = trpc.arduinoGen.generateCode.useMutation();
+  const generateQuery = trpc.arduinoGenerator.generateCode.useQuery(
+    { ssid, password, serverAddress, serverPort, sessionCode },
+    { enabled: false }
+  );
+
+  const handleGenerateClick = async () => {
+    if (!ssid.trim() || !password.trim() || !serverAddress.trim() || !sessionCode.trim()) {
+      toast.error("Todos los campos son requeridos");
+      return;
+    }
+    // Trigger the query manually
+    await generateQuery.refetch();
+  };
 
   const handleGenerate = async () => {
     if (!ssid.trim()) {
@@ -36,16 +48,10 @@ export default function ArduinoSetupSimple() {
     }
 
     try {
-      const result = await generateMutation.mutateAsync({
-        ssid,
-        password,
-        serverAddress,
-        serverPort,
-        sessionCode,
-      });
-
-      setGeneratedCode(result.code);
-      toast.success("Código generado correctamente");
+      if (generateQuery.data) {
+        setGeneratedCode(generateQuery.data.code);
+        toast.success("Código generado correctamente");
+      }
     } catch (error) {
       toast.error("Error al generar código");
       console.error(error);
@@ -151,10 +157,10 @@ export default function ArduinoSetupSimple() {
 
               <Button
                 onClick={handleGenerate}
-                disabled={generateMutation.isPending}
+                disabled={generateQuery.isLoading}
                 className="w-full mt-4 bg-accent hover:bg-accent/90 text-accent-foreground font-bold"
               >
-                {generateMutation.isPending ? (
+                {generateQuery.isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Generando...

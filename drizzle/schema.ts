@@ -1,4 +1,4 @@
-import { decimal, int, mysqlEnum, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
+import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, decimal } from "drizzle-orm/mysql-core";
 
 /**
  * Core user table backing auth flow.
@@ -27,15 +27,16 @@ export type InsertUser = typeof users.$inferInsert;
 
 /**
  * Classroom Session table: represents an active classroom session
+ * Linked to sessions from the QR app via sessionCode
  */
 export const classroomSessions = mysqlTable("classroom_sessions", {
   id: int("id").autoincrement().primaryKey(),
+  sessionCode: varchar("session_code", { length: 64 }).notNull().unique(), // From QR app
   name: varchar("name", { length: 255 }).notNull(),
   description: text("description"),
   startTime: timestamp("start_time").notNull(),
   endTime: timestamp("end_time"),
   isActive: int("is_active").default(0).notNull(), // 0 = inactive, 1 = active
-  createdBy: int("created_by").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
 });
@@ -45,16 +46,16 @@ export type InsertClassroomSession = typeof classroomSessions.$inferInsert;
 
 /**
  * Student Attendance table: tracks student attendance in sessions
+ * Synced from the QR app
  */
 export const studentAttendance = mysqlTable("student_attendance", {
   id: int("id").autoincrement().primaryKey(),
-  sessionId: int("session_id").notNull(),
+  sessionCode: varchar("session_code", { length: 64 }).notNull(), // From QR app
   studentId: varchar("student_id", { length: 255 }).notNull(), // External student ID from QR system
-  studentName: varchar("student_name", { length: 255 }).notNull(),
+  firstName: varchar("first_name", { length: 255 }).notNull(),
+  lastName: varchar("last_name", { length: 255 }).notNull(),
   checkInTime: timestamp("check_in_time").defaultNow().notNull(),
-  checkOutTime: timestamp("check_out_time"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
 });
 
 export type StudentAttendance = typeof studentAttendance.$inferSelect;
@@ -65,7 +66,7 @@ export type InsertStudentAttendance = typeof studentAttendance.$inferInsert;
  */
 export const temperatureLogs = mysqlTable("temperature_logs", {
   id: int("id").autoincrement().primaryKey(),
-  sessionId: int("session_id").notNull(),
+  sessionCode: varchar("session_code", { length: 64 }).notNull(), // From QR app
   currentTemperature: decimal("current_temperature", { precision: 5, scale: 2 }).notNull(),
   targetTemperature: decimal("target_temperature", { precision: 5, scale: 2 }).notNull(),
   studentCount: int("student_count").notNull(),

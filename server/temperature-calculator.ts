@@ -10,6 +10,8 @@ interface TemperatureCalculationResult {
   targetTemperature: number;
   season: Season;
   comfortStatus: ComfortStatus;
+  shouldEnableVentilation: boolean;
+  recommendedFanSpeed: number;
   explanation: string;
 }
 
@@ -86,8 +88,71 @@ function getComfortStatus(
 }
 
 /**
+ * Calculate ventilation requirements based on occupancy and comfort status
+ * - No ventilation: comfortable or too cold
+ * - Light ventilation (30%): slightly too hot (0.5-1°C above target)
+ * - Medium ventilation (60%): moderately too hot (1-2°C above target)
+ * - Full ventilation (100%): very hot (>2°C above target)
+ */
+function calculateVentilation(
+  currentTemperature: number,
+  targetTemperature: number,
+  studentCount: number
+): { shouldEnable: boolean; fanSpeed: number } {
+  const temperatureDifference = currentTemperature - targetTemperature;
+
+  // Base ventilation need on occupancy (more students = more CO2)
+  const occupancyFactor = Math.min(studentCount / 30, 1); // Max at 30 students
+
+  if (temperatureDifference > 2.0) {
+    // Very hot - full ventilation
+    return { shouldEnable: true, fanSpeed: 100 };
+  } else if (temperatureDifference > 1.0) {
+    // Moderately hot - medium ventilation
+    return { shouldEnable: true, fanSpeed: Math.round(60 + occupancyFactor * 20) };
+  } else if (temperatureDifference > 0.5) {
+    // Slightly hot - light ventilation
+    return { shouldEnable: true, fanSpeed: Math.round(30 + occupancyFactor * 20) };
+  } else if (temperatureDifference < -1.0) {
+    // Too cold - no ventilation
+    return { shouldEnable: false, fanSpeed: 0 };
+  } else {
+    // Comfortable - minimal ventilation for air quality (based on occupancy)
+    const minSpeed = Math.round(10 + occupancyFactor * 15);
+    return { shouldEnable: occupancyFactor > 0.3, fanSpeed: minSpeed };
+  }
+}
+
+/**
+ * Generate explanation for the calculation
+ */
+function generateExplanation(
+  season: Season,
+  studentCount: number,
+  date: Date,
+  baseTemperature: number,
+  occupancyAdjustment: number,
+  timeAdjustment: number,
+  comfortStatus: ComfortStatus
+): string {
+  const hour = date.getHours();
+  const timeOfDay =
+    hour >= 6 && hour < 9
+      ? 'mañana'
+      : hour >= 9 && hour < 14
+        ? 'mediodía'
+        : hour >= 14 && hour < 18
+          ? 'tarde'
+          : hour >= 18 && hour < 22
+            ? 'noche'
+            : 'madrugada';
+
+  return `Temporada: ${season === 'winter' ? 'invierno' : 'verano'}, Alumnos: ${studentCount}, Hora: ${timeOfDay}, Estado: ${comfortStatus}`;
+}
+
+/**
  * Main calculation function
- * Returns the optimal temperature target and comfort status
+ * Returns the optimal temperature target, comfort status, and ventilation recommendations
  */
 export function calculateOptimalTemperature(
   currentTemperature: number,
@@ -107,6 +172,12 @@ export function calculateOptimalTemperature(
 
   const comfortStatus = getComfortStatus(currentTemperature, clampedTarget);
 
+  const ventilation = calculateVentilation(
+    currentTemperature,
+    clampedTarget,
+    studentCount
+  );
+
   const explanation = generateExplanation(
     season,
     studentCount,
@@ -118,92 +189,11 @@ export function calculateOptimalTemperature(
   );
 
   return {
-    targetTemperature: Math.round(clampedTarget * 10) / 10,
+    targetTemperature: clampedTarget,
     season,
     comfortStatus,
+    shouldEnableVentilation: ventilation.shouldEnable,
+    recommendedFanSpeed: ventilation.fanSpeed,
     explanation,
   };
-}
-
-/**
- * Generate human-readable explanation of the calculation
- */
-function generateExplanation(
-  season: Season,
-  studentCount: number,
-  date: Date,
-  baseTemp: number,
-  occupancyAdj: number,
-  timeAdj: number,
-  status: ComfortStatus
-): string {
-  const hour = date.getHours();
-  const timeOfDay = getTimeOfDayLabel(hour);
-  const seasonLabel = season === 'winter' ? 'Invierno' : 'Verano';
-
-  let explanation = `${seasonLabel} - ${timeOfDay}. `;
-  explanation += `Base: ${baseTemp}°C. `;
-  explanation += `${studentCount} alumnos: -${occupancyAdj.toFixed(1)}°C. `;
-  explanation += `Hora del día: ${timeAdj > 0 ? '+' : ''}${timeAdj.toFixed(1)}°C. `;
-
-  if (status === 'comfortable') {
-    explanation += 'Confort óptimo.';
-  } else if (status === 'too_hot') {
-    explanation += 'Demasiado calor - considere ventilar.';
-  } else {
-    explanation += 'Demasiado frío - considere calentar.';
-  }
-
-  return explanation;
-}
-
-/**
- * Get human-readable time of day label
- */
-function getTimeOfDayLabel(hour: number): string {
-  if (hour >= 6 && hour < 9) return 'Mañana';
-  if (hour >= 9 && hour < 14) return 'Mediodía';
-  if (hour >= 14 && hour < 18) return 'Tarde';
-  if (hour >= 18 && hour < 22) return 'Noche';
-  return 'Madrugada';
-}
-
-/**
- * Validate temperature reading
- * Returns true if the reading is within acceptable range
- */
-export function isValidTemperatureReading(temperature: number): boolean {
-  return temperature >= 5 && temperature <= 40;
-}
-
-/**
- * Get comfort status color for UI visualization
- */
-export function getComfortStatusColor(status: ComfortStatus): string {
-  switch (status) {
-    case 'comfortable':
-      return '#4ade80';
-    case 'too_hot':
-      return '#f87171';
-    case 'too_cold':
-      return '#60a5fa';
-    default:
-      return '#9ca3af';
-  }
-}
-
-/**
- * Get comfort status label in Spanish
- */
-export function getComfortStatusLabel(status: ComfortStatus): string {
-  switch (status) {
-    case 'comfortable':
-      return 'Confortable';
-    case 'too_hot':
-      return 'Demasiado Calor';
-    case 'too_cold':
-      return 'Demasiado Frío';
-    default:
-      return 'Desconocido';
-  }
 }

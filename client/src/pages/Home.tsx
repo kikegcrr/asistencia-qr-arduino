@@ -1,11 +1,8 @@
-import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
-import { getLoginUrl } from "@/const";
 import { Thermometer, Users, Cloud, BarChart3 } from "lucide-react";
 
 export default function Home() {
-  const { user, isAuthenticated } = useAuth();
   const [, navigate] = useLocation();
 
   return (
@@ -17,23 +14,12 @@ export default function Home() {
             <h1 className="text-2xl font-bold text-white">ClimateControl</h1>
           </div>
           <div className="flex gap-4">
-            {isAuthenticated ? (
-              <>
-                <Button
-                  onClick={() => navigate("/dashboard")}
-                  className="bg-cyan-600 hover:bg-cyan-700 text-white"
-                >
-                  Ir al Dashboard
-                </Button>
-              </>
-            ) : (
-              <Button
-                onClick={() => (window.location.href = getLoginUrl())}
-                className="bg-cyan-600 hover:bg-cyan-700 text-white"
-              >
-                Iniciar Sesión
-              </Button>
-            )}
+            <Button
+              onClick={() => navigate("/dashboard")}
+              className="bg-cyan-600 hover:bg-cyan-700 text-white"
+            >
+              Ir al Dashboard
+            </Button>
           </div>
         </div>
       </header>
@@ -43,15 +29,13 @@ export default function Home() {
         <p className="text-xl text-slate-300 mb-8 max-w-2xl mx-auto">
           Control de temperatura en tiempo real para aulas, integrado con Arduino. Monitorea el confort de los alumnos basado en ocupación, hora del día y época del año.
         </p>
-        {isAuthenticated && (
-          <Button
-            onClick={() => navigate("/dashboard")}
-            size="lg"
-            className="bg-cyan-600 hover:bg-cyan-700 text-white text-lg"
-          >
-            Acceder al Sistema
-          </Button>
-        )}
+        <Button
+          onClick={() => navigate("/dashboard")}
+          size="lg"
+          className="bg-cyan-600 hover:bg-cyan-700 text-white text-lg"
+        >
+          Acceder al Sistema
+        </Button>
       </section>
 
       <section className="max-w-7xl mx-auto px-8 py-16">
@@ -85,7 +69,7 @@ export default function Home() {
 
       <footer className="border-t border-slate-700 bg-slate-900/50 mt-20">
         <div className="max-w-7xl mx-auto px-8 py-8 text-center text-slate-400">
-          <p>Sistema de Gestión Climática Inteligente para Aulas - Integración Arduino UNO R4 WiFi</p>
+          <p>Sistema de Gestión Climática Inteligente © 2026</p>
         </div>
       </footer>
     </div>
