@@ -12,22 +12,22 @@ export function registerArduinoRoutes(app: Express) {
   /**
    * GET /api/arduino/classroom-status
    * Returns current classroom status with student count and temperature recommendations
-   * Query params: sessionCode (optional, uses active session if not provided)
+   * Query params: sessionId (optional, uses active session if not provided)
    */
   app.get("/api/arduino/classroom-status", async (req, res) => {
     try {
-      const { sessionCode } = req.query;
+      const { sessionId } = req.query;
 
       let session;
-      let code = sessionCode as string | undefined;
+      let id = sessionId ? parseInt(sessionId as string) : undefined;
 
-      if (code) {
-        session = await db.getSessionByCode(code);
+      if (id) {
+        session = await db.getSessionById(id);
         if (!session) {
           return res.status(404).json({
             success: false,
             error: "Session not found",
-            message: `No session found with code: ${code}`,
+            message: `No session found with id: ${id}`,
           });
         }
       } else {
@@ -39,16 +39,16 @@ export function registerArduinoRoutes(app: Express) {
             message: "There is no active classroom session at this moment",
           });
         }
-        code = session.sessionCode;
+        id = session.id;
       }
 
-      const studentCount = await db.getStudentCount(code);
+      const studentCount = await db.getStudentCount(id);
       const mockCurrentTemp = 22.5; // In production, this comes from Arduino sensor
       const calculation = calculateOptimalTemperature(mockCurrentTemp, studentCount);
 
       return res.json({
         success: true,
-        sessionCode: code,
+        sessionId: id,
         sessionName: session.name,
         studentCount,
         currentTemperature: mockCurrentTemp,
@@ -71,17 +71,17 @@ export function registerArduinoRoutes(app: Express) {
   /**
    * POST /api/arduino/update-students
    * Updates student list for a session
-   * Body: { sessionCode, students: [{id, firstName, lastName}, ...] }
+   * Body: { sessionId, students: [{id, name}, ...] }
    */
   app.post("/api/arduino/update-students", async (req, res) => {
     try {
-      const { sessionCode, students } = req.body;
+      const { sessionId, students } = req.body;
 
-      if (!sessionCode || typeof sessionCode !== "string") {
+      if (!sessionId || typeof sessionId !== "number") {
         return res.status(400).json({
           success: false,
-          error: "Invalid sessionCode",
-          message: "sessionCode must be a non-empty string",
+          error: "Invalid sessionId",
+          message: "sessionId must be a number",
         });
       }
 
@@ -93,27 +93,23 @@ export function registerArduinoRoutes(app: Express) {
         });
       }
 
-      // Create or update session
-      await db.createOrUpdateSession(sessionCode, `Session ${sessionCode}`);
-
       // Add students
       for (const student of students) {
-        if (student.id && student.firstName && student.lastName) {
+        if (student.id && student.name) {
           await db.addStudentToSession(
-            sessionCode,
+            sessionId,
             student.id,
-            student.firstName,
-            student.lastName
+            student.name
           );
         }
       }
 
-      const finalCount = await db.getStudentCount(sessionCode);
+      const finalCount = await db.getStudentCount(sessionId);
 
       return res.json({
         success: true,
         message: `Updated ${students.length} students`,
-        sessionCode,
+        sessionId,
         studentCount: finalCount,
       });
     } catch (error) {
@@ -127,18 +123,19 @@ export function registerArduinoRoutes(app: Express) {
   });
 
   /**
-   * GET /api/arduino/session/:sessionCode/students
+   * GET /api/arduino/session/:sessionId/students
    * Get all students in a session
    */
-  app.get("/api/arduino/session/:sessionCode/students", async (req, res) => {
+  app.get("/api/arduino/session/:sessionId/students", async (req, res) => {
     try {
-      const { sessionCode } = req.params;
+      const { sessionId } = req.params;
+      const id = parseInt(sessionId);
 
-      const students = await db.getSessionStudents(sessionCode);
+      const students = await db.getSessionStudents(id);
 
       return res.json({
         success: true,
-        sessionCode,
+        sessionId: id,
         studentCount: students.length,
         students,
       });
@@ -159,7 +156,7 @@ export function registerArduinoRoutes(app: Express) {
   app.post("/api/arduino/temperature-log", async (req, res) => {
     try {
       const {
-        sessionCode,
+        sessionId,
         currentTemperature,
         targetTemperature,
         studentCount,
@@ -167,15 +164,15 @@ export function registerArduinoRoutes(app: Express) {
         season,
       } = req.body;
 
-      if (!sessionCode) {
+      if (!sessionId) {
         return res.status(400).json({
           success: false,
-          error: "Missing sessionCode",
+          error: "Missing sessionId",
         });
       }
 
       await db.logTemperature(
-        sessionCode,
+        sessionId,
         currentTemperature,
         targetTemperature,
         studentCount,

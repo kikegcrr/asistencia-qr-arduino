@@ -7,7 +7,7 @@ export interface ArduinoConfig {
   password: string;
   serverAddress: string;
   serverPort: number;
-  sessionCode: string;
+  sessionId: number;
 }
 
 /**
@@ -50,7 +50,7 @@ export function generateArduinoCode(config: ArduinoConfig): string {
 const char* WIFI_SSID = "${config.ssid}";
 const char* WIFI_PASSWORD = "${config.password}";
 const char* SERVER_URL = "${serverUrl}";
-const char* SESSION_CODE = "${config.sessionCode}";
+const int SESSION_ID = ${config.sessionId};
 
 // Sensor DHT22
 #define DHT_PIN 2
@@ -306,8 +306,8 @@ export function validateArduinoConfig(config: ArduinoConfig): { valid: boolean; 
     errors.push("Puerto debe estar entre 1 y 65535");
   }
 
-  if (!config.sessionCode || config.sessionCode.trim().length === 0) {
-    errors.push("Código de sesión es requerido");
+  if (!config.sessionId || config.sessionId <= 0) {
+    errors.push("ID de sesión es requerido");
   }
 
   return {

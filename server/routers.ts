@@ -7,10 +7,10 @@ import { z } from "zod";
 import { generateArduinoCode, validateArduinoConfig } from "./arduino-generator";
 import {
   getActiveSession,
-  getSessionByCode,
+  getSessionById,
   getSessionStudents,
   addStudentToSession,
-  createOrUpdateSession,
+  createSession,
   getStudentCount,
   logTemperature,
 } from "./db";
@@ -32,14 +32,14 @@ export const appRouter = router({
   // Arduino public endpoints (no authentication required)
   arduino: router({
     classroomStatus: publicProcedure
-      .input(z.object({ sessionCode: z.string().optional() }).optional())
+      .input(z.object({ sessionId: z.number().optional() }).optional())
       .query(async ({ input }) => {
         try {
           let session = null;
-          let sessionCode = input?.sessionCode;
+          let sessionId = input?.sessionId;
 
-          // If no sessionCode provided, get the active session
-          if (!sessionCode) {
+          // If no sessionId provided, get the active session
+          if (!sessionId) {
             session = await getActiveSession();
             if (!session) {
               return {
@@ -50,9 +50,9 @@ export const appRouter = router({
                 comfortStatus: "unknown",
               };
             }
-            sessionCode = session.sessionCode;
+            sessionId = session.id;
           } else {
-            session = await getSessionByCode(sessionCode);
+            session = await getSessionById(sessionId);
             if (!session) {
               return {
                 success: false,
@@ -64,19 +64,21 @@ export const appRouter = router({
             }
           }
 
-          const studentCount = await getStudentCount(sessionCode);
+          const studentCount = await getStudentCount(sessionId);
           const mockCurrentTemp = 22.5; // In production, this would come from Arduino sensor
           const calculation = calculateOptimalTemperature(mockCurrentTemp, studentCount);
 
           return {
             success: true,
-            sessionCode,
+            sessionId,
             sessionName: session.name,
             studentCount,
             currentTemperature: mockCurrentTemp,
             targetTemperature: calculation.targetTemperature,
             comfortStatus: calculation.comfortStatus,
             season: calculation.season,
+            shouldEnableVentilation: calculation.shouldEnableVentilation,
+            recommendedFanSpeed: calculation.recommendedFanSpeed,
           };
         } catch (error) {
           console.error("[Arduino] Error getting classroom status:", error);
@@ -93,30 +95,25 @@ export const appRouter = router({
     updateStudents: publicProcedure
       .input(
         z.object({
-          sessionCode: z.string(),
+          sessionId: z.number(),
           students: z.array(
             z.object({
               id: z.string(),
-              firstName: z.string(),
-              lastName: z.string(),
+              name: z.string(),
             })
           ),
         })
       )
       .mutation(async ({ input }) => {
         try {
-          const { sessionCode, students } = input;
-
-          // Create or update session
-          await createOrUpdateSession(sessionCode, `Session ${sessionCode}`);
+          const { sessionId, students } = input;
 
           // Add students
           for (const student of students) {
             await addStudentToSession(
-              sessionCode,
+              sessionId,
               student.id,
-              student.firstName,
-              student.lastName
+              student.name
             );
           }
 
@@ -142,29 +139,27 @@ export const appRouter = router({
       return session || null;
     }),
 
-    getByCode: publicProcedure
-      .input(z.object({ sessionCode: z.string() }))
+    getById: publicProcedure
+      .input(z.object({ sessionId: z.number() }))
       .query(async ({ input }) => {
-        return await getSessionByCode(input.sessionCode);
+        return await getSessionById(input.sessionId);
       }),
 
     getStudents: publicProcedure
-      .input(z.object({ sessionCode: z.string() }))
+      .input(z.object({ sessionId: z.number() }))
       .query(async ({ input }) => {
-        return await getSessionStudents(input.sessionCode);
+        return await getSessionStudents(input.sessionId);
       }),
 
     create: publicProcedure
       .input(
         z.object({
-          sessionCode: z.string(),
           name: z.string(),
           description: z.string().optional(),
         })
       )
       .mutation(async ({ input }) => {
-        return await createOrUpdateSession(
-          input.sessionCode,
+        return await createSession(
           input.name,
           input.description
         );
@@ -186,7 +181,7 @@ export const appRouter = router({
           password: z.string(),
           serverAddress: z.string(),
           serverPort: z.number(),
-          sessionCode: z.string(),
+          sessionId: z.number(),
         })
       )
       .query(async ({ input }) => {
@@ -196,14 +191,14 @@ export const appRouter = router({
             password: input.password,
             serverAddress: input.serverAddress,
             serverPort: input.serverPort,
-            sessionCode: input.sessionCode,
+            sessionId: input.sessionId,
           };
 
           const code = generateArduinoCode(config);
           return {
             success: true,
             code,
-            filename: `arduino_climate_${input.sessionCode}.ino`,
+            filename: `arduino_climate_${input.sessionId}.ino`,
           };
         } catch (error) {
           throw new TRPCError({

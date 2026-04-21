@@ -22,7 +22,9 @@
 - [x] Implementar gestión de sesiones (crear, activar, cerrar)
 - [x] Mostrar número actual de alumnos conectados
 - [x] Implementar lista de alumnos presentes con hora de entrada
-- [ ] Agregar estado de conexión con Arduino
+- [x] Agregar estado de conexión con Arduino
+- [x] Eliminar sistema de autenticación OAuth
+- [x] Hacer dashboard accesible sin login
 
 ## Fase 4: Lógica de Cálculo de Temperatura
 - [x] Implementar algoritmo RITE/ASHRAE para cálculo de temperatura objetivo
@@ -30,6 +32,8 @@
 - [x] Crear función de cálculo de estado de confort
 - [x] Agregar visualización de temperatura objetivo vs actual
 - [x] Crear pruebas unitarias (23 tests pasando)
+- [x] Agregar cálculo de ventilación (shouldEnableVentilation)
+- [x] Agregar cálculo de velocidad del ventilador (recommendedFanSpeed)
 
 ## Fase 5: Diseño Visual (Estética CAD)
 - [x] Diseñar tema azul royal oscuro con cuadrícula técnica (parcial)
@@ -43,8 +47,9 @@
 - [x] Crear documentación de integración en HTML/PDF
 - [x] Interfaz web para configurar Arduino
 - [x] Generador de código personalizado
-- [ ] Implementar botones de descarga en la interfaz
-- [ ] Incluir guía de configuración WiFi y endpoints
+- [x] Implementar botones de descarga en la interfaz
+- [x] Incluir guía de configuración WiFi y endpoints
+- [x] Adaptar a sessionCode en lugar de sessionId
 
 ## Fase 7: Historial y Estadísticas
 - [ ] Crear página de historial de sesiones
@@ -90,3 +95,8 @@
 - [x] Dashboard accesible y usable
 - [x] Generador de código personalizado
 - [x] Integración con app de QR verificada
+- [x] Sin autenticación OAuth (acceso público)
+- [x] Campos shouldEnableVentilation y recommendedFanSpeed
+- [x] Adaptado a sessionCode para compatibilidad con app de QR
+- [x] Endpoint: GET /api/arduino/classroom-status?sessionCode={code}
+- [x] Respuesta incluye: studentCount, shouldEnableVentilation, recommendedFanSpeed

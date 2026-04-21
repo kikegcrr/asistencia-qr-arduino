@@ -34,9 +34,7 @@ export default function Dashboard() {
 
   const handleCreateSession = async () => {
     if (!sessionName.trim()) return;
-    const sessionCode = `SESSION-${Date.now()}`;
     await createSessionMutation.mutateAsync({
-      sessionCode,
       name: sessionName,
       description: sessionDescription,
     });

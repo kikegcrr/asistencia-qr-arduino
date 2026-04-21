@@ -27,11 +27,10 @@ export type InsertUser = typeof users.$inferInsert;
 
 /**
  * Classroom Session table: represents an active classroom session
- * Linked to sessions from the QR app via sessionCode
+ * Linked to sessions from the QR app
  */
 export const classroomSessions = mysqlTable("classroom_sessions", {
   id: int("id").autoincrement().primaryKey(),
-  sessionCode: varchar("session_code", { length: 64 }).notNull().unique(), // From QR app
   name: varchar("name", { length: 255 }).notNull(),
   description: text("description"),
   startTime: timestamp("start_time").notNull(),
@@ -50,12 +49,13 @@ export type InsertClassroomSession = typeof classroomSessions.$inferInsert;
  */
 export const studentAttendance = mysqlTable("student_attendance", {
   id: int("id").autoincrement().primaryKey(),
-  sessionCode: varchar("session_code", { length: 64 }).notNull(), // From QR app
+  sessionId: int("session_id").notNull(), // Reference to classroom_sessions
   studentId: varchar("student_id", { length: 255 }).notNull(), // External student ID from QR system
-  firstName: varchar("first_name", { length: 255 }).notNull(),
-  lastName: varchar("last_name", { length: 255 }).notNull(),
+  studentName: varchar("student_name", { length: 255 }).notNull(),
   checkInTime: timestamp("check_in_time").defaultNow().notNull(),
+  checkOutTime: timestamp("check_out_time"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
 });
 
 export type StudentAttendance = typeof studentAttendance.$inferSelect;
@@ -66,7 +66,7 @@ export type InsertStudentAttendance = typeof studentAttendance.$inferInsert;
  */
 export const temperatureLogs = mysqlTable("temperature_logs", {
   id: int("id").autoincrement().primaryKey(),
-  sessionCode: varchar("session_code", { length: 64 }).notNull(), // From QR app
+  sessionId: int("session_id").notNull(), // Reference to classroom_sessions
   currentTemperature: decimal("current_temperature", { precision: 5, scale: 2 }).notNull(),
   targetTemperature: decimal("target_temperature", { precision: 5, scale: 2 }).notNull(),
   studentCount: int("student_count").notNull(),

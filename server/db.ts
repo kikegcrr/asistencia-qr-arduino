@@ -93,7 +93,7 @@ export async function getUserByOpenId(openId: string) {
 import type { ClassroomSession, StudentAttendance as StudentAttendanceRecord } from "../drizzle/schema";
 
 /**
- * Get the currently active classroom session
+ * Get the currently active classroom session (most recent one)
  */
 export async function getActiveSession(): Promise<ClassroomSession | undefined> {
   const db = await getDb();
@@ -102,59 +102,57 @@ export async function getActiveSession(): Promise<ClassroomSession | undefined> 
   const result = await db
     .select()
     .from(classroomSessions)
-    .where(eq(classroomSessions.isActive, 1))
+    .orderBy((t) => t.startTime)
     .limit(1);
 
   return result.length > 0 ? result[0] : undefined;
 }
 
 /**
- * Get session by sessionCode
+ * Get session by ID
  */
-export async function getSessionByCode(sessionCode: string): Promise<ClassroomSession | undefined> {
+export async function getSessionById(sessionId: number): Promise<ClassroomSession | undefined> {
   const db = await getDb();
   if (!db) return undefined;
 
   const result = await db
     .select()
     .from(classroomSessions)
-    .where(eq(classroomSessions.sessionCode, sessionCode))
+    .where(eq(classroomSessions.id, sessionId))
     .limit(1);
 
   return result.length > 0 ? result[0] : undefined;
 }
 
 /**
- * Get all students in a session by sessionCode
+ * Get all students in a session by sessionId
  */
-export async function getSessionStudents(sessionCode: string) {
+export async function getSessionStudents(sessionId: number) {
   const db = await getDb();
   if (!db) return [];
 
   return await db
     .select()
     .from(studentAttendance)
-    .where(eq(studentAttendance.sessionCode, sessionCode));
+    .where(eq(studentAttendance.sessionId, sessionId));
 }
 
 /**
  * Add a student to a session
  */
 export async function addStudentToSession(
-  sessionCode: string,
+  sessionId: number,
   studentId: string,
-  firstName: string,
-  lastName: string
+  studentName: string
 ) {
   const db = await getDb();
   if (!db) return undefined;
 
   try {
     const result = await db.insert(studentAttendance).values({
-      sessionCode,
+      sessionId,
       studentId,
-      firstName,
-      lastName,
+      studentName,
       checkInTime: new Date(),
       createdAt: new Date(),
     });
@@ -167,10 +165,9 @@ export async function addStudentToSession(
 }
 
 /**
- * Create or update a classroom session
+ * Create a new classroom session
  */
-export async function createOrUpdateSession(
-  sessionCode: string,
+export async function createSession(
   name: string,
   description?: string
 ) {
@@ -178,35 +175,18 @@ export async function createOrUpdateSession(
   if (!db) return undefined;
 
   try {
-    const existing = await getSessionByCode(sessionCode);
+    const result = await db.insert(classroomSessions).values({
+      name,
+      description,
+      startTime: new Date(),
+      isActive: 1,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
 
-    if (existing) {
-      // Update existing session
-      await db
-        .update(classroomSessions)
-        .set({
-          name,
-          description: description || existing.description,
-          updatedAt: new Date(),
-        })
-        .where(eq(classroomSessions.sessionCode, sessionCode));
-      return existing;
-    } else {
-      // Create new session
-      const result = await db.insert(classroomSessions).values({
-        sessionCode,
-        name,
-        description,
-        startTime: new Date(),
-        isActive: 1,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
-
-      return result;
-    }
+    return result;
   } catch (error) {
-    console.error("[Database] Failed to create/update session:", error);
+    console.error("[Database] Failed to create session:", error);
     return undefined;
   }
 }
@@ -214,14 +194,14 @@ export async function createOrUpdateSession(
 /**
  * Get count of students in a session
  */
-export async function getStudentCount(sessionCode: string): Promise<number> {
+export async function getStudentCount(sessionId: number): Promise<number> {
   const db = await getDb();
   if (!db) return 0;
 
   const result = await db
     .select()
     .from(studentAttendance)
-    .where(eq(studentAttendance.sessionCode, sessionCode));
+    .where(eq(studentAttendance.sessionId, sessionId));
 
   return result.length;
 }
@@ -230,7 +210,7 @@ export async function getStudentCount(sessionCode: string): Promise<number> {
  * Log temperature reading
  */
 export async function logTemperature(
-  sessionCode: string,
+  sessionId: number,
   currentTemperature: number,
   targetTemperature: number,
   studentCount: number,
@@ -242,7 +222,7 @@ export async function logTemperature(
 
   try {
     return await db.insert(temperatureLogs).values({
-      sessionCode,
+      sessionId,
       currentTemperature: currentTemperature.toString(),
       targetTemperature: targetTemperature.toString(),
       studentCount,

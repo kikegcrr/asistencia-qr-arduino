@@ -11,17 +11,17 @@ export default function ArduinoSetupSimple() {
   const [password, setPassword] = useState("");
   const [serverAddress, setServerAddress] = useState("192.168.1.100");
   const [serverPort, setServerPort] = useState(3001);
-  const [sessionCode, setSessionCode] = useState("");
+  const [sessionId, setSessionId] = useState(1);
   const [generatedCode, setGeneratedCode] = useState("");
   const [copied, setCopied] = useState(false);
 
   const generateQuery = trpc.arduinoGenerator.generateCode.useQuery(
-    { ssid, password, serverAddress, serverPort, sessionCode },
+    { ssid, password, serverAddress, serverPort, sessionId },
     { enabled: false }
   );
 
   const handleGenerateClick = async () => {
-    if (!ssid.trim() || !password.trim() || !serverAddress.trim() || !sessionCode.trim()) {
+    if (!ssid.trim() || !password.trim() || !serverAddress.trim() || !sessionId) {
       toast.error("Todos los campos son requeridos");
       return;
     }
@@ -42,8 +42,8 @@ export default function ArduinoSetupSimple() {
       toast.error("Dirección del servidor requerida");
       return;
     }
-    if (!sessionCode.trim()) {
-      toast.error("Código de sesión requerido");
+    if (!sessionId || sessionId <= 0) {
+      toast.error("ID de sesión requerido");
       return;
     }
 
@@ -144,12 +144,13 @@ export default function ArduinoSetupSimple() {
 
                 <div>
                   <label className="text-sm font-semibold text-foreground block mb-1">
-                    Código de Sesión
+                    ID de Sesión
                   </label>
                   <Input
-                    placeholder="abc123def456"
-                    value={sessionCode}
-                    onChange={(e) => setSessionCode(e.target.value)}
+                    type="number"
+                    placeholder="1"
+                    value={sessionId}
+                    onChange={(e) => setSessionId(parseInt(e.target.value) || 1)}
                     className="bg-input border-accent text-foreground"
                   />
                 </div>
